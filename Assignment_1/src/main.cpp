@@ -18,7 +18,11 @@ typedef vector<Point> Polygon;
 double inline det(const Point &u, const Point &v)
 {
     // TODO
-    return 0;
+    cout << "Point u " << u.real() << u.imag() << endl;
+    cout << "Point v " << v.real() << v.imag() << endl;
+
+
+    return u.real() * u.imag() - v.real() * v.imag();
 }
 
 // Return true iff [a,b] intersects [c,d], and store the intersection in ans
@@ -203,7 +207,7 @@ int main(int argc, char *argv[])
     vector<Point> result;
     for (size_t i = 0; i < points.size(); ++i)
     {
-        cout << "inside Point in Polygon loop: " << i << endl;
+        //cout << "inside Point in Polygon loop: " << i << endl;
         if (is_inside(poly, points[i]))
         {
             result.push_back(points[i]);
