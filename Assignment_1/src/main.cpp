@@ -18,10 +18,6 @@ typedef vector<Point> Polygon;
 double inline det(const Point &u, const Point &v)
 {
     // TODO
-    cout << "Point u " << u.real() << u.imag() << endl;
-    cout << "Point v " << v.real() << v.imag() << endl;
-
-
     return u.real() * u.imag() - v.real() * v.imag();
 }
 
@@ -46,11 +42,6 @@ bool is_inside(const Polygon &poly, const Point &query)
 
 ////////////////////////////////////////////////////////////////////////////////
 
-double cross_product(const Point &p1, const Point &p2)
-{
-    return p1.real() * p2.imag() - p2.real() * p1.imag();
-}
-
 double distance_squared(const Point &p1, const Point &p2)
 {
     double dx = p1.real() - p2.real();
@@ -63,7 +54,7 @@ struct Compare
     Point p0; // Leftmost point of the poly
     bool operator()(const Point &p1, const Point &p2)
     {
-        auto cross = cross_product(p1 - p0, p2 - p0);
+        auto cross = det(p1 - p0, p2 - p0);
         if (cross == 0)
         {
             auto d1 = distance_squared(p1, p0);
@@ -76,7 +67,7 @@ struct Compare
 
 bool inline salientAngle(const Point &a, const Point &b, const Point &c)
 {
-    auto cross = cross_product(b - a, c - a);
+    auto cross = det(b - a, c - a);
     return cross > 0;
 }
 
