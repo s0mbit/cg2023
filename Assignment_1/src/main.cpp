@@ -25,7 +25,21 @@ double inline det(const Point &u, const Point &v)
 bool intersect_segment(const Point &a, const Point &b, const Point &c, const Point &d, Point &ans)
 {
     // TODO
-    return true;
+
+    double ac_cross_ad = det(c - a, d - a);
+    double ab_cross_ad = det(b - a, d - a);
+    double ca_cross_cb = det(a - c, b - c);
+    double cd_cross_cb = det(d - c, b - c);
+
+    if ((ac_cross_ad > 0 && ab_cross_ad < 0) || (ac_cross_ad < 0 && ab_cross_ad > 0)) {
+        if ((ca_cross_cb > 0 && cd_cross_cb < 0) || (ca_cross_cb < 0 && cd_cross_cb > 0)) {
+            // Calculate the intersection point
+            double t = ac_cross_ad / (ab_cross_ad - ac_cross_ad);
+            ans = a + t * (b - a);
+            return true;
+        }
+    }
+    return false;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
