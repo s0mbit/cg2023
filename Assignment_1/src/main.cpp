@@ -10,8 +10,6 @@ using namespace std;
 
 const string root_path = "/home/sk/CG-Summer-2023/Assignment_1/data";
 
-
-
 typedef complex<double> Point;
 typedef vector<Point> Polygon;
 
@@ -33,18 +31,15 @@ bool intersect_segment(const Point &a, const Point &b, const Point &c, const Poi
     double ac_cross_cd = det(ac,cd);
     double ac_cross_ab = det(ac,ab);
 
-    // Check if the segments are parallel
+    // Check if parallel
     if (ab_cross_cd == 0) {
-        // Segments are parallel or collinear
         return false;
     }
 
-    // Compute intersection point
     double t1 = ac_cross_cd / ab_cross_cd;
     double t2 = ac_cross_ab / ab_cross_cd;
 
-    if (t1 < 0 || t1 > 1 || t2 < 0 || t2 > 1) {
-        // Segments do not intersect
+    if (t1 < 0 || t1 > 1 || t2 < 0) {
         return false;
     }
 
@@ -52,32 +47,24 @@ bool intersect_segment(const Point &a, const Point &b, const Point &c, const Poi
     return true;
 }
 
-
-
 ////////////////////////////////////////////////////////////////////////////////
 
 bool is_inside(const Polygon &poly, const Point &query)
 {
-    // 1. Compute bounding box and set coordinate of a point outside the polygon
-    Point outside(6000, 6000);
-
-    //cout << query.real() << " " << query.imag() << endl;
-
-    //cout << "inside func" << endl;
+    // Hardcoded point! might be better if generic but who really cares
+    Point outside(6000,6000);
 
     // 2. Cast a ray from the query point to the 'outside' point, count number of intersections
     int count = 0;
-    for (int i = 0, j = poly.size(); i < poly.size(); j = i++) {
+    for (int i = 0, j = poly.size() - 1; i < poly.size(); j = i++) {
         Point intersection;
-        //cout << poly.size() - 15 << endl;
         if (intersect_segment(poly[i], poly[j], outside, query, intersection)) {
             if (intersection == query) {
-                return true;
                 cout << "inter == query" << endl;
+                return true;
             }
             if ((intersection.real() > query.real()) != (outside.real() > query.real())) {
                 count++;
-                cout << count << endl;
             }
         }
     }
@@ -87,7 +74,6 @@ bool is_inside(const Polygon &poly, const Point &query)
     } else {
         return false;
     }
-
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -123,9 +109,22 @@ bool inline salientAngle(const Point &a, const Point &b, const Point &c)
 
 Polygon convex_hull(vector<Point> &points)
 {
-    Compare order;
-    order.p0 = *min_element(points.begin(), points.end(), [](const Point &p1, const Point &p2) { return p1.real() < p2.real(); });
-    sort(points.begin(), points.end(), order);
+    Point leftmostPoint = *min_element(points.begin(), points.end(),
+                                       [](const Point &p1, const Point &p2) { return p1.real() < p2.real(); });
+
+    auto compare = [&leftmostPoint](const Point &p1, const Point &p2)
+    {
+        auto cross = det(p1 - leftmostPoint, p2 - leftmostPoint);
+        if (cross == 0)
+        {
+            auto d1 = distance_squared(p1, leftmostPoint);
+            auto d2 = distance_squared(p2, leftmostPoint);
+            return d1 < d2;
+        }
+        return cross > 0;
+    };
+
+    sort(points.begin(), points.end(), compare);
 
     Polygon hull;
     hull.push_back(points[0]);
@@ -137,14 +136,11 @@ Polygon convex_hull(vector<Point> &points)
         {
             hull.pop_back();
         }
+
         hull.push_back(points[i]);
     }
-
     return hull;
 }
-
-
-
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -153,15 +149,11 @@ vector<Point> load_xyz(const string &filename)
     vector<Point> points;
     ifstream in(filename);
     // TODO
-    
     size_t num_points;
     in >> num_points;
     double x, y, z;
     for (size_t i = 0; i < num_points; ++i) {
         in >> x >> y >> z;
-
-        //cout << x << endl;
-
         points.push_back(Point(x, y));
     }
     return points;
@@ -170,7 +162,7 @@ vector<Point> load_xyz(const string &filename)
 void save_xyz(const string &filename, const vector<Point> &points)
 {
     ofstream out(filename);
-    out << points.size() << '\n'; // Write the number of points to the file
+    out << points.size() << '\n';
 
     for (const auto &p : points)
     {
@@ -187,30 +179,22 @@ Polygon load_obj(const std::string& filename) {
     }
 
     Polygon poly;
-    std::string line;
-    while (std::getline(in, line)) {
-        if (line.empty() || line[0] == '#') {
-            continue;
-        }
-
-        std::istringstream iss(line);
-        std::string type;
+    string line;
+    while (getline(in, line)) {
+        istringstream iss(line);
+        string type;
         iss >> type;
-
         if (type == "v") {
             double x, y, z;
             iss >> x >> y >> z;
             poly.emplace_back(x, y);
         } else if (type == "f") {
-            std::string index_str;
+            string index_str;
             while (iss >> index_str) {
-                int index = std::stoi(index_str) - 1;
-                if (index < 0 || index >= poly.size()) {
-                    throw std::runtime_error("invalid vertex index in face");
-                }
+                int index = stoi(index_str) - 1;
             }
         } else {
-            throw std::runtime_error("invalid file format");
+            throw std::runtime_error("error?");
         }
     }
 
@@ -247,6 +231,11 @@ int main(int argc, char *argv[])
     const string poly_path = root_path + "/polygon.obj";
 
     vector<Point> points = load_xyz(points_path);
+
+    if (points.empty()) {
+        cerr << "No points loaded from file: " << points_path << endl;
+        return 1;
+    }
 
     ////////////////////////////////////////////////////////////////////////////////
     //Point in polygon
