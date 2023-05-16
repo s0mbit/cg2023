@@ -140,7 +140,7 @@ Polygon convex_hull(vector<Point> &points)
         hull.push_back(points[i]);
     }
     return hull;
-}
+} 
 
 ////////////////////////////////////////////////////////////////////////////////
 
