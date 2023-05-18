@@ -42,9 +42,9 @@ By the end of the course, the student must be able to:
 * Shading
 * Rendering pipeline and the GPU
 * Texturing
-* Polygonal meshes and other modelling techniques
-* Colour spaces
-* Light and colour
+* Polygonal meshes and other modeling techniques
+* Color spaces
+* Light and color
 * Ray-geometry intersection
 * Ray tracing
 
@@ -70,9 +70,9 @@ By the end of the course, the students will design, program, and analyze algorit
 [01 Introduction](slides/01%20-%20Introduction%20to%20Computer%20Graphics.pdf)</br>
 [02 Linear Algebra](slides/02%20-%20Basic%20Linear%20Algebra.pdf)</br>
 [03 C++](slides/03%20-%20C%2B%2B.pdf)</br>
-<!--[04 Images](slides/04%20-%20Images.pdf)</br>
+[04 Images](slides/04%20-%20Images.pdf)</br>
 [05 Ray Tracing](slides/05%20-%20Ray%20Tracing.pdf)</br>
-[06 Spatial Data Structures](slides/06%20-%20Spatial%20Data%20Structures.pdf)</br>
+<!--[06 Spatial Data Structures](slides/06%20-%20Spatial%20Data%20Structures.pdf)</br>
 [07 Procedural Synthesis](slides/07%20-%20Procedural%20Synthesis.pdf)</br>
 [08 2D Transformations](slides/08%20-%202D%20Transformations.pdf)</br>
 [09 Viewing Transformations](slides/09%20-%20Viewing%20Transformations.pdf)</br>
@@ -86,9 +86,9 @@ By the end of the course, the students will design, program, and analyze algorit
 
 [Rules](Rules.md)
 
-[Assigment 1 - Optional](Assignment_1/README.md)</br>
-<!-- [Assigment 2](Assignment_2/README.md)</br>
-[Assigment 3](Assignment_3/README.md)</br>
-[Assigment 4](Assignment_4/README.md)</br>
-[Assigment 5](Assignment_5/README.md)</br> -->
+[Assignment 1 - Optional](Assignment_1/README.md)</br>
+[Assignment 2](Assignment_2/README.md)</br>
+<!--[Assignment 3](Assignment_3/README.md)</br>
+[Assignment 4](Assignment_4/README.md)</br>
+[Assignment 5](Assignment_5/README.md)</br> -->
 
