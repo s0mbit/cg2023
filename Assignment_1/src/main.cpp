@@ -58,6 +58,7 @@ bool is_inside(const Polygon &poly, const Point &query)
     int count = 0;
     for (int i = 0, j = poly.size() - 1; i < poly.size(); j = i++) {
         Point intersection;
+        //checks if the vector from i to j is coliding with the query to outside ray.
         if (intersect_segment(poly[i], poly[j], outside, query, intersection)) {
             if (intersection == query) {
                 cout << "inter == query" << endl;
