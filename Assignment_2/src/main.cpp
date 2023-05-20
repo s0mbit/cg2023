@@ -74,6 +74,7 @@ void raytrace_sphere()
     write_matrix_to_png(C, C, C, A, filename);
 }
 
+
 void raytrace_parallelogram()
 {
     std::cout << "Simple ray tracer, one parallelogram with orthographic projection" << std::endl;
@@ -108,31 +109,51 @@ void raytrace_parallelogram()
             const Vector3d ray_origin = pixel_center;
             const Vector3d ray_direction = camera_view_direction;
 
-            // TODO: Check if the ray intersects with the parallelogram
-            if (true)
+            // Compute the normal vector of the parallelogram
+            Vector3d pgram_normal = pgram_u.cross(pgram_v).normalized();
+
+            // Check if the ray intersects with the parallelogram
+            double t = (pgram_origin - ray_origin).dot(pgram_normal) / ray_direction.dot(pgram_normal);
+            if (t >= 0)
             {
-                // TODO: The ray hit the parallelogram, compute the exact intersection
-                // point
-                Vector3d ray_intersection(0, 0, 0);
+                // The ray hit the parallelogram, compute the exact intersection point
+                Vector3d ray_intersection = ray_origin + t * ray_direction;
 
-                // TODO: Compute normal at the intersection point
-                Vector3d ray_normal = ray_intersection.normalized();
+                // Compute vectors relative to the parallelogram's origin
+                Vector3d relative_intersection = ray_intersection - pgram_origin;
+                
+                // Check if the intersection point is inside the parallelogram
+                double u = relative_intersection.dot(pgram_u) / pgram_u.dot(pgram_u);
+                double v = relative_intersection.dot(pgram_v) / pgram_v.dot(pgram_v);
+                if (u >= 0 && u <= 1 && v >= 0 && v <= 1)
+                {
+                    // Compute normal at the intersection point (it's constant across the parallelogram)
+                    Vector3d ray_normal = pgram_normal;
 
-                // Simple diffuse model
-                C(i, j) = (light_position - ray_intersection).normalized().transpose() * ray_normal;
+                    // Simple diffuse model
+                    //C(i, j) = (light_position - ray_intersection).normalized().dot(ray_normal);
 
-                // Clamp to zero
-                C(i, j) = std::max(C(i, j), 0.);
+                    // Simple diffuse model
+                    Vector3d light_direction = (ray_intersection - light_position).normalized();
+                    C(i, j) = light_direction.dot(ray_normal);
 
-                // Disable the alpha mask for this pixel
-                A(i, j) = 1;
+
+                    // Clamp to zero
+                    C(i, j) = std::max(C(i, j), 0.);
+
+                    // Disable the alpha mask for this pixel
+                    A(i, j) = 1;
+                }
             }
+
         }
     }
 
     // Save to png
     write_matrix_to_png(C, C, C, A, filename);
 }
+
+
 
 void raytrace_perspective()
 {
