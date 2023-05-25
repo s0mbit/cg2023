@@ -13,6 +13,42 @@
 // Shortcut to avoid Eigen:: everywhere, DO NOT USE IN .h
 using namespace Eigen;
 
+
+bool interParallelogram(const Vector3d& ray_origin, const Vector3d& ray_direction, const Vector3d& pgram_origin, const Vector3d& pgram_u, const Vector3d& pgram_v, double& out_u, double& out_v)
+{
+    // Normal of the parallelogram
+    Vector3d normal = pgram_u.cross(pgram_v).normalized();
+
+    // Nenner of 
+    double nenner = normal.dot(ray_direction);
+
+    // The Ray is parallel to plane if Nenner is zero
+    // fabs returns absolute value (abs should work too)
+    if (fabs(nenner) == 0)
+        return false;
+
+    double t = (pgram_origin - ray_origin).dot(normal) / nenner;
+
+    // if t is not positive the ray does not go through the plane
+    if (t < 0)
+        return false;
+
+    Vector3d intersection = ray_origin + t * ray_direction;
+    Vector3d local_intersection = intersection - pgram_origin;
+
+    double u = local_intersection.dot(pgram_u) / pgram_u.dot(pgram_u);
+    double v = local_intersection.dot(pgram_v) / pgram_v.dot(pgram_v);
+
+    // Check if intersection is within parallelogram
+    if (u < 0 || u > 1 || v < 0 || v > 1)
+        return false;
+
+    out_u = u;
+    out_v = v;
+
+    return true;
+}
+
 void raytrace_sphere()
 {
     std::cout << "Simple ray tracer, one sphere with orthographic projection" << std::endl;
@@ -74,7 +110,6 @@ void raytrace_sphere()
     write_matrix_to_png(C, C, C, A, filename);
 }
 
-
 void raytrace_parallelogram()
 {
     std::cout << "Simple ray tracer, one parallelogram with orthographic projection" << std::endl;
@@ -103,47 +138,43 @@ void raytrace_parallelogram()
     {
         for (unsigned j = 0; j < C.rows(); ++j)
         {
+            
             const Vector3d pixel_center = image_origin + double(i) * x_displacement + double(j) * y_displacement;
 
-            // Prepare the ray
+            // Prepare the ray - rays should be parallel and NOT come from a single point
             const Vector3d ray_origin = pixel_center;
             const Vector3d ray_direction = camera_view_direction;
 
             // Compute the normal vector of the parallelogram
             Vector3d pgram_normal = pgram_u.cross(pgram_v).normalized();
 
-            // Check if the ray intersects with the parallelogram
-            double t = (pgram_origin - ray_origin).dot(pgram_normal) / ray_direction.dot(pgram_normal);
-            if (t >= 0)
+            double u, v;
+            // implemented generic function to check if ray intersects with parallelogram because it is used 2 times in this whole code
+            bool does_intersect = interParallelogram(ray_origin, ray_direction, pgram_origin, pgram_u, pgram_v, u, v);
+
+            if (does_intersect)
             {
-                // The ray hit the parallelogram, compute the exact intersection point
-                Vector3d ray_intersection = ray_origin + t * ray_direction;
+                // TODO: The ray hit the parallelogram, compute the exact intersection point
+                // Vector3d ray_intersection(0, 0, 0);
+                Vector3d ray_intersection = pgram_origin + u * pgram_u + v * pgram_v;
 
-                // Compute vectors relative to the parallelogram's origin
-                Vector3d relative_intersection = ray_intersection - pgram_origin;
-                
-                // Check if the intersection point is inside the parallelogram
-                double u = relative_intersection.dot(pgram_u) / pgram_u.dot(pgram_u);
-                double v = relative_intersection.dot(pgram_v) / pgram_v.dot(pgram_v);
-                if (u >= 0 && u <= 1 && v >= 0 && v <= 1)
-                {
-                    // Compute normal at the intersection point (it's constant across the parallelogram)
-                    Vector3d ray_normal = pgram_normal;
+                // TODO: Compute normal at the intersection point
+                // Vector3d ray_normal = ray_intersection.normalized();
+                Vector3d pgram_normal = pgram_u.cross(pgram_v).normalized(); // Cross product of the two parallelogram vectors gives the normal
 
-                    // Simple diffuse model
-                    //C(i, j) = (light_position - ray_intersection).normalized().dot(ray_normal);
 
-                    // Simple diffuse model
-                    Vector3d light_direction = (ray_intersection - light_position).normalized();
+                Vector3d ray_normal = pgram_normal; 
+                // Simple diffuse model
+                // C(i, j) = (light_position - ray_intersection).normalized().transpose() * ray_normal;
+                // C(i, j) = (light_position - ray_intersection).normalized().transpose() * pgram_normal;
+                Vector3d light_direction = (ray_intersection - light_position).normalized();
                     C(i, j) = light_direction.dot(ray_normal);
 
+                // Clamp to zero
+                C(i, j) = std::max(C(i, j), 0.);
 
-                    // Clamp to zero
-                    C(i, j) = std::max(C(i, j), 0.);
-
-                    // Disable the alpha mask for this pixel
-                    A(i, j) = 1;
-                }
+                // Disable the alpha mask for this pixel
+                A(i, j) = 1;
             }
 
         }
@@ -152,8 +183,6 @@ void raytrace_parallelogram()
     // Save to png
     write_matrix_to_png(C, C, C, A, filename);
 }
-
-
 
 void raytrace_perspective()
 {
@@ -186,20 +215,40 @@ void raytrace_perspective()
             const Vector3d pixel_center = image_origin + double(i) * x_displacement + double(j) * y_displacement;
 
             // TODO: Prepare the ray (origin point and direction)
-            const Vector3d ray_origin = pixel_center;
-            const Vector3d ray_direction = camera_view_direction;
+            //const Vector3d ray_origin = pixel_center;
+            //const Vector3d ray_direction = camera_view_direction;
+
+
+            // ray should come out of the camera 
+            const Vector3d ray_origin = camera_origin;
+            const Vector3d ray_direction = pixel_center - camera_origin; 
+
+
+            double u, v;
+            bool does_intersect = interParallelogram(ray_origin, ray_direction, pgram_origin, pgram_u, pgram_v, u, v);
 
             // TODO: Check if the ray intersects with the parallelogram
-            if (true)
+            // the if statement is the same with the orthographic and the perspective projection 
+            // only difference is the point where the rays are coming from. 
+            // Single Point == Perspective.
+            // Rays Parallel == orthographic
+            if (does_intersect)
             {
                 // TODO: The ray hit the parallelogram, compute the exact intersection point
-                Vector3d ray_intersection(0, 0, 0);
+                // Vector3d ray_intersection(0, 0, 0);
+                Vector3d ray_intersection = pgram_origin + u * pgram_u + v * pgram_v;
 
                 // TODO: Compute normal at the intersection point
-                Vector3d ray_normal = ray_intersection.normalized();
+                // Vector3d ray_normal = ray_intersection.normalized();
+                Vector3d pgram_normal = pgram_u.cross(pgram_v).normalized(); // Cross product of the two parallelogram vectors gives the normal
 
+
+                Vector3d ray_normal = pgram_normal; 
                 // Simple diffuse model
-                C(i, j) = (light_position - ray_intersection).normalized().transpose() * ray_normal;
+                // C(i, j) = (light_position - ray_intersection).normalized().transpose() * ray_normal;
+                // C(i, j) = (light_position - ray_intersection).normalized().transpose() * pgram_normal;
+                Vector3d light_direction = (ray_intersection - light_position).normalized();
+                    C(i, j) = light_direction.dot(ray_normal);
 
                 // Clamp to zero
                 C(i, j) = std::max(C(i, j), 0.);

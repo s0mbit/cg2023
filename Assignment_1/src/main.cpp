@@ -110,6 +110,7 @@ bool inline salientAngle(const Point &a, const Point &b, const Point &c)
 
 Polygon convex_hull(vector<Point> &points)
 {
+    
     Point leftmostPoint = *min_element(points.begin(), points.end(),
                                        [](const Point &p1, const Point &p2) { return p1.real() < p2.real(); });
 
@@ -123,7 +124,7 @@ Polygon convex_hull(vector<Point> &points)
             return d1 < d2;
         }
         return cross > 0;
-    };
+    }; 
 
     sort(points.begin(), points.end(), compare);
 
@@ -133,10 +134,11 @@ Polygon convex_hull(vector<Point> &points)
 
     for (size_t i = 2; i < points.size(); ++i)
     {
-        while (hull.size() >= 2 && !salientAngle(*(hull.rbegin() + 1), hull.back(), points[i]))
+        while (hull.size() >= 2 && !salientAngle(hull[hull.size() - 2], hull[hull.size() - 1], points[i]))
         {
             hull.pop_back();
         }
+
 
         hull.push_back(points[i]);
     }
@@ -174,7 +176,7 @@ void save_xyz(const string &filename, const vector<Point> &points)
 
 
 Polygon load_obj(const std::string& filename) {
-    std::ifstream in(filename);
+    ifstream in(filename);
     if (!in.is_open()) {
         throw std::runtime_error("failed to open file " + filename);
     }
