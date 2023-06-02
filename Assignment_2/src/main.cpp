@@ -30,33 +30,31 @@ bool interTriangle(const Vector3d &ray_origin, const Vector3d &ray_direction,
 
     Vector3d e1 = v1 - v0;                      // Edge 1 from Triangle
     Vector3d e2 = v2 - v0;                      // Edge 2 from Triangle
+
     Vector3d h = ray_direction.cross(e2);       // Vector with 90° on ray_direction and e2
-    Vector3d s = ray_origin - v0;               
-    Vector3d q = s.cross(e1);                   // same as h but for s and e1
-
     double a = e1.dot(h);
-    double f = 1.0 / a;                         //inverse of a and scaling factor for barycentric coordinates
-    
-    if (f > 0 && f < 1)
-        //cout << f << endl;
-
-    //these are barycentric coordinates If they are between 0 and 1 the ray is inside the triangle
-    out_u = f * s.dot(h);
-    out_v = f * ray_direction.dot(q);
-
-    out_t = f * e2.dot(q);                      // distance from ray origin to intersection 
 
     // Check Ray is parallel to triangle
     if (a > -EPSILON && a < EPSILON)
         return false;
 
+    double f = 1.0 / a;                         //inverse of a and scaling factor for barycentric coordinates
+    Vector3d s = ray_origin - v0;
+    out_u = f * s.dot(h);
+
     // Check if intersection is outside of the triangle
     if (out_u < 0.0 || out_u > 1.0)
         return false;
+
+    Vector3d q = s.cross(e1);
+    out_v = f * ray_direction.dot(q);           //these are barycentric coordinates If they are between 0 and 1 the ray is inside the triangle
     
     // Check if intersection is outside of the triangle
     if (out_v < 0.0 || out_u + out_v > 1.0)
         return false;
+
+
+    out_t = f * e2.dot(q);                      // distance from ray origin to intersection 
 
     // Check if there is a line intersection but not Ray intersection
     // Line is infinite to both ends and a ray has a starting point end only one infinite side
@@ -93,22 +91,22 @@ bool sphere_intersection(const Vector3d& ray_origin, const Vector3d& ray_directi
 {
     Vector3d L = sphere_center - ray_origin;                        // Computes vector from ray_origin to the Sphere center
     double tca = L.dot(ray_direction);                              
-    double d2 = L.dot(L) - tca * tca;
+    double d2 = L.dot(L) - tca * tca;                               // sqrt distance from center of sphere to ray
     double thc = std::sqrt(sphere_radius * sphere_radius - d2);
     t = tca - thc;
 
     if (d2 > sphere_radius * sphere_radius)
     {
-        return false; // Ray misses the sphere
+        return false; // Ray doesnt hit the sphere
     }
 
-    if (t < 0)
+    if (t < 0)  // intersection point is behind ray origin 
     {
-        t = tca + thc;
+        t = tca + thc;  // distance to second intersection point
 
         if (t < 0)
         {
-            return false; // Ray originates inside the sphere
+            return false; // Ray starts inside the sphere
         }
     }
 
@@ -361,7 +359,7 @@ void raytrace_shading()
     const double sphere_radius = 0.9;
 
     //material params
-    const Vector3d diffuse_color(0, 1, 1);
+    const Vector3d diffuse_color(0, 1, 0); //tried different colors
     const double specular_exponent = 100;
     const Vector3d specular_color(0., 0, 1);
 
