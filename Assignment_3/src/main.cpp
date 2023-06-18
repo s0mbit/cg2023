@@ -14,6 +14,7 @@
 
 // Shortcut to avoid Eigen:: everywhere, DO NOT USE IN .h
 using namespace Eigen;
+using namespace std;
 
 ////////////////////////////////////////////////////////////////////////////////
 // Scene setup, global variables
@@ -21,11 +22,13 @@ using namespace Eigen;
 
 const std::string filename("raytrace.png");
 
+const double EPSILON = 1e-9;
+
 //Camera settings
 const double focal_length = 10;
 const double field_of_view = 0.7854; //45 degrees
 const double image_z = 5;
-const bool is_perspective = false;
+const bool is_perspective = true;
 const Vector3d camera_position(0, 0, 5);
 const double camera_aperture = 0.05;
 
@@ -117,6 +120,54 @@ void setup_scene()
     light_colors.emplace_back(16, 16, 16, 0);
 }
 
+////////////////////////////////////////////////////////////////////////////////
+// Code from assignment 2 
+
+bool interTriangle(const Vector3d &ray_origin, const Vector3d &ray_direction, 
+                    const Vector3d &v0, const Vector3d &v1, const Vector3d &v2, 
+                    double &out_u, double &out_v, double &out_t)
+{
+    //based on the Möller-Trumbore algorithm 
+
+    Vector3d e1 = v1 - v0;                      // Edge 1 from Triangle
+    Vector3d e2 = v2 - v0;                      // Edge 2 from Triangle
+
+    Vector3d h = ray_direction.cross(e2);       // Vector with 90° on ray_direction and e2
+    double a = e1.dot(h);
+
+    // Check Ray is parallel to triangle
+    if (a > -EPSILON && a < EPSILON)
+        return false;
+
+    double f = 1.0 / a;                         //inverse of a and scaling factor for barycentric coordinates
+    Vector3d s = ray_origin - v0;
+    out_u = f * s.dot(h);
+
+    // Check if intersection is outside of the triangle
+    if (out_u < 0.0 || out_u > 1.0)
+        return false;
+
+    Vector3d q = s.cross(e1);
+    out_v = f * ray_direction.dot(q);           //these are barycentric coordinates If they are between 0 and 1 the ray is inside the triangle
+    
+    // Check if intersection is outside of the triangle
+    if (out_v < 0.0 || out_u + out_v > 1.0)
+        return false;
+
+    out_t = f * e2.dot(q);                      // distance from ray origin to intersection 
+
+    // Check if there is a line intersection but not Ray intersection
+    // Line is infinite to both ends and a ray has a starting point end only one infinite side
+    if (out_t <= EPSILON)
+        return false;
+
+    // If all the other checks are false the ray has an insertion with the triangle
+    return true;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+
 //We need to make this function visible
 Vector4d shoot_ray(const Vector3d &ray_origin, const Vector3d &ray_direction, int max_bounce);
 
@@ -200,22 +251,21 @@ double ray_sphere_intersection(const Vector3d &ray_origin, const Vector3d &ray_d
     const Vector3d sphere_center = sphere_centers[index];
     const double sphere_radius = sphere_radii[index];
 
-    double t = -1;
+    Vector3d l = sphere_center - ray_origin;
 
-    if (false)
-    {
-        return -1;
-    }
-    else
-    {
-        //TODO set the correct intersection point, update p to the correct value
-        p = ray_origin;
-        N = ray_direction;
+    double t = l.dot(ray_direction);
+    if (t < 0) return -1;
 
-        return t;
-    }
+    double d2 = l.dot(l) - t * t;
+    if (d2 > sphere_radius * sphere_radius) return -1;
+    
+    double t2 = sqrt(sphere_radius * sphere_radius - d2);
+    double t0 = t - t2;
 
-    return -1;
+    p = ray_origin + ray_direction * t0;
+    N = (p - sphere_center).normalized();
+
+    return t0;
 }
 
 //Compute the intersection between a ray and a paralleogram, return -1 if no intersection
@@ -230,17 +280,50 @@ double ray_parallelogram_intersection(const Vector3d &ray_origin, const Vector3d
     const Vector3d pgram_u = A - pgram_origin;
     const Vector3d pgram_v = B - pgram_origin;
 
-    if (false)
-    {
+    double out_u, out_v, out_t;
+
+    Vector3d v0 = pgram_origin; // lower-left
+    Vector3d v1 = A; // lower-right
+    Vector3d v2 = B + pgram_v; // upper-right
+    Vector3d v3 = B; // upper-left
+
+
+    // Separate intersection parameters for each triangle
+    double out_u1, out_v1, out_t1;
+    double out_u2, out_v2, out_t2;
+
+    // Intersect with each triangle
+    bool does_intersect1 = interTriangle(ray_origin, ray_direction, v0, v2, v1, out_u1, out_v1, out_t1);
+    bool does_intersect2 = interTriangle(ray_origin, ray_direction, v0, v3, v2, out_u2, out_v2, out_t2);
+
+
+    // If only one triangle is intersected or the first one is closer, choose the first
+    if (does_intersect1 && (!does_intersect2 || out_t1 < out_t2)) {
+        out_u = out_u1;
+        out_v = out_v1;
+        out_t = out_t1;
+        p = ray_origin + out_t * ray_direction;
+        N = (v2 - v0).cross(v1 - v0).normalized(); 
+        //N = (A - pgram_origin).cross(B - pgram_origin).normalized();
+        return out_t;
+    }
+    // Otherwise, choose the second
+    else if (does_intersect2) {
+        out_u = out_u2;
+        out_v = out_v2;
+        out_t = out_t2;
+        p = ray_origin + out_t * ray_direction;
+        N = (v3 - v0).cross(v2 - v0).normalized();  
+        return out_t;
+    }
+    // If neither triangle is intersected, return -1
+    else {
+        p = Vector3d(0, 0, 0); // Set p to an invalid value since there is no intersection
+        N = Vector3d(0, 0, 0); // Set N to an invalid value since there is no intersection
         return -1;
     }
-
-    //TODO set the correct intersection point, update p and N to the correct values
-    p = ray_origin;
-    N = p.normalized();
-
-    return -1;
 }
+
 
 //Finds the closest intersecting object returns its index
 //In case of intersection it writes into p and N (intersection point and normals)
@@ -252,6 +335,26 @@ int find_nearest_object(const Vector3d &ray_origin, const Vector3d &ray_directio
     double closest_t = std::numeric_limits<double>::max(); //closest t is "+ infinity"
 
     Vector3d tmp_p, tmp_N;
+
+    for (int i = 0; i < parallelograms.size(); ++i)
+    {
+        //returns t and writes on tmp_p and tmp_N
+        const double t = ray_parallelogram_intersection(ray_origin, ray_direction, i, tmp_p, tmp_N);
+        //We have intersection
+        if (t >= 0)
+        {
+            //The point is before our current closest t
+            if (t < closest_t)
+            {
+                closest_index = sphere_centers.size() + i;
+                closest_t = t;
+                p = tmp_p;
+                N = tmp_N;
+                //cout << p << "," << N << endl;
+            }
+        }
+    }
+
     for (int i = 0; i < sphere_centers.size(); ++i)
     {
         //returns t and writes on tmp_p and tmp_N
@@ -270,24 +373,6 @@ int find_nearest_object(const Vector3d &ray_origin, const Vector3d &ray_directio
         }
     }
 
-    for (int i = 0; i < parallelograms.size(); ++i)
-    {
-        //returns t and writes on tmp_p and tmp_N
-        const double t = ray_parallelogram_intersection(ray_origin, ray_direction, i, tmp_p, tmp_N);
-        //We have intersection
-        if (t >= 0)
-        {
-            //The point is before our current closest t
-            if (t < closest_t)
-            {
-                closest_index = sphere_centers.size() + i;
-                closest_t = t;
-                p = tmp_p;
-                N = tmp_N;
-            }
-        }
-    }
-
     return closest_index;
 }
 
@@ -296,10 +381,30 @@ int find_nearest_object(const Vector3d &ray_origin, const Vector3d &ray_directio
 ////////////////////////////////////////////////////////////////////////////////
 
 //Checks if the light is visible
-bool is_light_visible(const Vector3d &ray_origin, const Vector3d &ray_direction, const Vector3d &light_position)
-{
-    // TODO: Determine if the light is visible here
-    // Use find_nearest_object
+bool is_light_visible(const Vector3d &ray_origin, const Vector3d &ray_direction, const Vector3d &light_position) {
+    // Compute the direction from the origin to the light
+    Vector3d toLight = light_position - ray_origin;
+    double light_distance = toLight.norm();
+    
+    // Normalize the vector
+    toLight.normalize();
+    
+    // Check if the ray towards the light source is in the same general direction as the original ray
+    // This is to ensure that we're not checking for objects behind the origin point
+    if (ray_direction.dot(toLight) < 0) return false;
+
+    Vector3d p, N;
+    int object_index = find_nearest_object(ray_origin, toLight, p, N);
+    
+    // If the ray intersected with an object, compute the distance to the object
+    if (object_index != -1) {
+        double object_distance = (p - ray_origin).norm();
+
+        // If the object is closer than the light source, the light is not visible
+        if (object_distance < light_distance) return false;
+    }
+
+    // No object is closer than the light source, so the light is visible
     return true;
 }
 
@@ -330,36 +435,37 @@ Vector4d shoot_ray(const Vector3d &ray_origin, const Vector3d &ray_direction, in
 
         // TODO: Shoot a shadow ray to determine if the light should affect the intersection point and call is_light_visible
 
-        Vector4d diff_color = obj_diffuse_color;
-
-        if (nearest_object == 4)
+        // Check if the light is visible
+        if (is_light_visible(p, Li, light_position))
         {
-            //Compute UV coodinates for the point on the sphere
-            const double x = p(0) - sphere_centers[nearest_object][0];
-            const double y = p(1) - sphere_centers[nearest_object][1];
-            const double z = p(2) - sphere_centers[nearest_object][2];
-            double tu = acos(z / sphere_radii[nearest_object]) / 3.1415;
-            double tv = (3.1415 + atan2(y, x)) / (2 * 3.1415);
-            tu = std::min(tu, 1.0);
-            tu = std::max(tu, 0.0);
+            // Diffuse reflection
+            Vector4d diff_color = obj_diffuse_color;
 
-            tv = std::min(tv, 1.0);
-            tv = std::max(tv, 0.0);
+            if (nearest_object == 4)
+            {
+                // Compute UV coordinates for the point on the sphere
+                const double x = p(0) - sphere_centers[nearest_object][0];
+                const double y = p(1) - sphere_centers[nearest_object][1];
+                const double z = p(2) - sphere_centers[nearest_object][2];
+                double tu = acos(z / sphere_radii[nearest_object]) / 3.1415;
+                double tv = (3.1415 + atan2(y, x)) / (2 * 3.1415);
+                tu = std::min(tu, 1.0);
+                tu = std::max(tu, 0.0);
 
-            diff_color = procedural_texture(tu, tv);
-        }
+                tv = std::min(tv, 1.0);
+                tv = std::max(tv, 0.0);
 
-        // TODO: Add shading parameters
-
-        // Diffuse contribution
+                diff_color = procedural_texture(tu, tv);
+            }
         const Vector4d diffuse = diff_color * std::max(Li.dot(N), 0.0);
-
-        // Specular contribution, use obj_specular_color
-        const Vector4d specular(0, 0, 0, 0);
+        // Specular reflection
+        const Vector3d R = (2 * N * (N.dot(Li)) - Li).normalized();
+        const Vector4d specular = obj_specular_color * std::pow(std::max(-ray_direction.dot(R), 0.0), obj_specular_exponent);
 
         // Attenuate lights according to the squared distance to the lights
         const Vector3d D = light_position - p;
         lights_color += (diffuse + specular).cwiseProduct(light_color) / D.squaredNorm();
+        } 
     }
 
     Vector4d refl_color = obj_reflection_color;
@@ -370,6 +476,10 @@ Vector4d shoot_ray(const Vector3d &ray_origin, const Vector3d &ray_direction, in
     // TODO: Compute the color of the reflected ray and add its contribution to the current point color.
     // use refl_color
     Vector4d reflection_color(0, 0, 0, 0);
+    
+    const Vector3d R = 2 * N * (N.dot(-ray_direction)) - (-ray_direction); // Reflected ray direction
+    reflection_color = refl_color.cwiseProduct(shoot_ray(p + 0.0001 * R, R, max_bounce - 1)); // Bounce ray, offset the origin slightly to avoid self intersection
+    
 
     // TODO: Compute the color of the refracted ray and add its contribution to the current point color.
     //       Make sure to check for total internal reflection before shooting a new ray.
@@ -401,8 +511,8 @@ void raytrace_scene()
     // The sensor grid is at a distance 'focal_length' from the camera center,
     // and covers an viewing angle given by 'field_of_view'.
     double aspect_ratio = double(w) / double(h);
-    double image_y = 1; //TODO: compute the correct pixels size
-    double image_x = 1; //TODO: compute the correct pixels size
+    double image_y = tan(field_of_view * 0.5) * focal_length; //TODO: compute the correct pixels size
+    double image_x = image_y * aspect_ratio;  //TODO: compute the correct pixels size
 
     // The pixel grid through which we shoot rays is at a distance 'focal_length'
     const Vector3d image_origin(-image_x, image_y, -image_z);
@@ -423,6 +533,9 @@ void raytrace_scene()
             if (is_perspective)
             {
                 // TODO: Perspective camera
+                ray_origin = camera_position;
+                ray_direction = (pixel_center - camera_position).normalized();
+
             }
             else
             {

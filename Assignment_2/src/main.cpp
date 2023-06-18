@@ -20,7 +20,7 @@
 using namespace Eigen;
 using namespace std;
 
-const double EPSILON = 1e-6;
+const double EPSILON = 1e-9;
 
 bool interTriangle(const Vector3d &ray_origin, const Vector3d &ray_direction, 
                     const Vector3d &v0, const Vector3d &v1, const Vector3d &v2, 
@@ -52,7 +52,6 @@ bool interTriangle(const Vector3d &ray_origin, const Vector3d &ray_direction,
     // Check if intersection is outside of the triangle
     if (out_v < 0.0 || out_u + out_v > 1.0)
         return false;
-
 
     out_t = f * e2.dot(q);                      // distance from ray origin to intersection 
 
@@ -89,25 +88,20 @@ bool intersect(const Vector3d &ray_origin, const Vector3d &ray_direction,
 
 bool sphere_intersection(const Vector3d& ray_origin, const Vector3d& ray_direction, const Vector3d& sphere_center, const double sphere_radius, double& t)
 {
-    Vector3d L = sphere_center - ray_origin;                        // Computes vector from ray_origin to the Sphere center
-    double tca = L.dot(ray_direction);                              
-    double d2 = L.dot(L) - tca * tca;                               // sqrt distance from center of sphere to ray
-    double thc = std::sqrt(sphere_radius * sphere_radius - d2);
-    t = tca - thc;
+    Vector3d ctoorigin = sphere_center - ray_origin;                        // Computes vector from ray_origin to the Sphere center
+    double a = ctoorigin.dot(ray_direction);                              
+    double d2 = ctoorigin.dot(ctoorigin) - a * a;                               // sqrt distance from center of sphere to ray
+    double h = sqrt(sphere_radius * sphere_radius - d2);
+    t = a - h;
 
-    if (d2 > sphere_radius * sphere_radius)
-    {
+    if (d2 > sphere_radius * sphere_radius) {
         return false; // Ray doesnt hit the sphere
     }
 
-    if (t < 0)  // intersection point is behind ray origin 
-    {
-        t = tca + thc;  // distance to second intersection point
-
+    if (t < 0) { // intersection point behind ray_origin 
+        t = a + h;  // distance to second intersection point
         if (t < 0)
-        {
             return false; // Ray starts inside the sphere
-        }
     }
 
     return true; // Ray intersects the sphere
@@ -234,7 +228,7 @@ void raytrace_parallelogram()
 
                 Vector3d ray_normal = pgram_normal; 
                 // Simple diffuse model
-                // C(i, j) = (light_position - ray_intersection).normalizewd().transpose() * ray_normal;
+                // C(i, j) = (light_position - ray_intersection).normalized().transpose() * ray_normal;
                 // C(i, j) = (light_position - ray_intersection).normalized().transpose() * pgram_normal;
                 Vector3d light_direction = (ray_intersection - light_position).normalized();
                 C(i, j) = light_direction.dot(ray_normal);
@@ -359,9 +353,9 @@ void raytrace_shading()
     const double sphere_radius = 0.9;
 
     //material params
-    const Vector3d diffuse_color(0, 1, 0); //tried different colors
+    const Vector3d diffuse_color(1,0.1,0.3); //tried different colors
     const double specular_exponent = 100;
-    const Vector3d specular_color(0., 0, 1);
+    const Vector3d specular_color = diffuse_color;
 
     // Single light source
     const Vector3d light_position(-1, 1, 1);
@@ -399,8 +393,12 @@ void raytrace_shading()
                 // const double specular = (light_position - ray_intersection).normalized().dot(ray_normal);
 
                 const Vector3d light_direction = (light_position - ray_intersection).normalized();
-                const double diffuse = std::max(light_direction.dot(ray_normal), 0.0);
-                const double specular = std::pow(std::max(light_direction.dot(ray_direction), 0.0), specular_exponent);
+                const double diffuse = max(light_direction.dot(ray_normal), 0.0);
+                //const double specular = pow(std::max(light_direction.dot(ray_direction), 0.0), specular_exponent);
+
+
+                Vector3d reflection = 2 * light_direction.dot(ray_normal) * ray_normal - light_direction;
+                const double specular = pow(max(reflection.dot(-ray_direction), 0.0), specular_exponent);
 
 
                 // Simple diffuse model
@@ -427,7 +425,7 @@ void raytrace_shading()
 
 int main()
 {
-    //raytrace_sphere();
+    raytrace_sphere();
     raytrace_parallelogram();
     raytrace_perspective();
     raytrace_shading();
