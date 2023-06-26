@@ -26,9 +26,12 @@ const double EPSILON = 1e-9;
 
 //Camera settings
 const double focal_length = 10;
-const double field_of_view = 0.7854; //45 degrees
+const double field_of_view = 0.7854; //45 degreese
 const double image_z = 5;
+
 const bool is_perspective = true;
+const bool dof = true;
+
 const Vector3d camera_position(0, 0, 5);
 const double camera_aperture = 0.05;
 
@@ -182,24 +185,28 @@ double lerp(double a0, double a1, double w)
     assert(w >= 0);
     assert(w <= 1);
     //TODO implement linear and cubic interpolation
-    return 0;
+    double interpol = (1 - w)*a0 + w*a1;
+    return interpol;
 }
 
 // Computes the dot product of the distance and gradient vectors.
 double dotGridGradient(int ix, int iy, double x, double y)
 {
     //TODO: Compute the distance vector
+    double dx = x - ix;
+    double dy = y - iy;
     //TODO: Compute and return the dot-product
-    return 0;
+    Vector2d gradient = grid[ix][iy];
+    return dx * gradient[0] + dy * gradient[1];
 }
 
 // Compute Perlin noise at coordinates x, y
 double perlin(double x, double y)
 {
     //TODO: Determine grid cell coordinates x0, y0
-    int x0 = 0;
+    int x0 = (int)floor(x);
     int x1 = x0 + 1;
-    int y0 = 0;
+    int y0 = (int)floor(y);
     int y1 = y0 + 1;
 
     // Determine interpolation weights
@@ -230,12 +237,12 @@ Vector4d procedural_texture(const double tu, const double tv)
     assert(tv <= 1);
 
     //TODO: uncomment these lines once you implement the perlin noise
-    // const double color = (perlin(tu * grid_size, tv * grid_size) + 1) / 2;
-    // return Vector4d(0, color, 0, 0);
+    const double color = (perlin(tu * grid_size, tv * grid_size) + 1) / 2;
+    return Vector4d(0, color, 0, 0);
 
     //Example fo checkerboard texture
-    const double color = (int(tu * grid_size) + int(tv * grid_size)) % 2 == 0 ? 0 : 1;
-    return Vector4d(0, color, 0, 0);
+    //const double color = (int(tu * grid_size) + int(tv * grid_size)) % 2 == 0 ? 0 : 1;
+    //return Vector4d(0, color, 0, 0);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -282,32 +289,25 @@ double ray_parallelogram_intersection(const Vector3d &ray_origin, const Vector3d
 
     double out_u, out_v, out_t;
 
-    Vector3d v0 = pgram_origin; // lower-left
-    Vector3d v1 = A; // lower-right
-    Vector3d v2 = B + pgram_v; // upper-right
-    Vector3d v3 = B; // upper-left
+    Vector3d v0 = pgram_origin;     // lower-left
+    Vector3d v1 = A;                // lower-right
+    Vector3d v2 = B + pgram_v;      // upper-right
+    Vector3d v3 = B;                // upper-left
 
-
-    // Separate intersection parameters for each triangle
     double out_u1, out_v1, out_t1;
     double out_u2, out_v2, out_t2;
 
-    // Intersect with each triangle
     bool does_intersect1 = interTriangle(ray_origin, ray_direction, v0, v2, v1, out_u1, out_v1, out_t1);
     bool does_intersect2 = interTriangle(ray_origin, ray_direction, v0, v3, v2, out_u2, out_v2, out_t2);
 
-
-    // If only one triangle is intersected or the first one is closer, choose the first
     if (does_intersect1 && (!does_intersect2 || out_t1 < out_t2)) {
         out_u = out_u1;
         out_v = out_v1;
         out_t = out_t1;
         p = ray_origin + out_t * ray_direction;
         N = (v2 - v0).cross(v1 - v0).normalized(); 
-        //N = (A - pgram_origin).cross(B - pgram_origin).normalized();
         return out_t;
     }
-    // Otherwise, choose the second
     else if (does_intersect2) {
         out_u = out_u2;
         out_v = out_v2;
@@ -316,10 +316,9 @@ double ray_parallelogram_intersection(const Vector3d &ray_origin, const Vector3d
         N = (v3 - v0).cross(v2 - v0).normalized();  
         return out_t;
     }
-    // If neither triangle is intersected, return -1
     else {
-        p = Vector3d(0, 0, 0); // Set p to an invalid value since there is no intersection
-        N = Vector3d(0, 0, 0); // Set N to an invalid value since there is no intersection
+        p = Vector3d(0, 0, 0); 
+        N = Vector3d(0, 0, 0); 
         return -1;
     }
 }
@@ -338,12 +337,9 @@ int find_nearest_object(const Vector3d &ray_origin, const Vector3d &ray_directio
 
     for (int i = 0; i < parallelograms.size(); ++i)
     {
-        //returns t and writes on tmp_p and tmp_N
         const double t = ray_parallelogram_intersection(ray_origin, ray_direction, i, tmp_p, tmp_N);
-        //We have intersection
         if (t >= 0)
         {
-            //The point is before our current closest t
             if (t < closest_t)
             {
                 closest_index = sphere_centers.size() + i;
@@ -460,7 +456,7 @@ Vector4d shoot_ray(const Vector3d &ray_origin, const Vector3d &ray_direction, in
         const Vector4d diffuse = diff_color * std::max(Li.dot(N), 0.0);
         // Specular reflection
         const Vector3d R = (2 * N * (N.dot(Li)) - Li).normalized();
-        const Vector4d specular = obj_specular_color * std::pow(std::max(-ray_direction.dot(R), 0.0), obj_specular_exponent);
+        const Vector4d specular = obj_specular_color * pow((-ray_direction.dot(R), 0.0), obj_specular_exponent);
 
         // Attenuate lights according to the squared distance to the lights
         const Vector3d D = light_position - p;
@@ -476,7 +472,7 @@ Vector4d shoot_ray(const Vector3d &ray_origin, const Vector3d &ray_direction, in
     // TODO: Compute the color of the reflected ray and add its contribution to the current point color.
     // use refl_color
     Vector4d reflection_color(0, 0, 0, 0);
-    
+
     const Vector3d R = 2 * N * (N.dot(-ray_direction)) - (-ray_direction); // Reflected ray direction
     reflection_color = refl_color.cwiseProduct(shoot_ray(p + 0.0001 * R, R, max_bounce - 1)); // Bounce ray, offset the origin slightly to avoid self intersection
     
@@ -519,6 +515,11 @@ void raytrace_scene()
     const Vector3d x_displacement(2.0 / w * image_x, 0, 0);
     const Vector3d y_displacement(0, -2.0 / h * image_y, 0);
 
+    //Depth of Field Parameters
+    double lens_radius = camera_aperture / 2;
+    Vector3d focal_point = Vector3d(10, 0, 1);
+
+
     for (unsigned i = 0; i < w; ++i)
     {
         for (unsigned j = 0; j < h; ++j)
@@ -532,9 +533,18 @@ void raytrace_scene()
 
             if (is_perspective)
             {
+                if (dof) //Parameter for activating dof is somewhere in the first 20 lines of code
+                {      
+                    Vector3d random_point_in_lens = lens_radius * Vector3d::Random();  
+                    ray_origin = camera_position + random_point_in_lens;
+                    ray_direction = (pixel_center - ray_origin).normalized();
+                }
+                else
+                {
                 // TODO: Perspective camera
                 ray_origin = camera_position;
                 ray_direction = (pixel_center - camera_position).normalized();
+                }
 
             }
             else
