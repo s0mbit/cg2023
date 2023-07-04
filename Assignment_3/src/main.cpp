@@ -25,7 +25,7 @@ const std::string filename("raytrace.png");
 const double EPSILON = 1e-9;
 
 //Camera settings
-const double focal_length = 10;
+const double focal_length = 15;
 const double field_of_view = 0.7854; //45 degreese
 const double image_z = 5;
 
@@ -378,29 +378,26 @@ int find_nearest_object(const Vector3d &ray_origin, const Vector3d &ray_directio
 
 //Checks if the light is visible
 bool is_light_visible(const Vector3d &ray_origin, const Vector3d &ray_direction, const Vector3d &light_position) {
-    // Compute the direction from the origin to the light
+    // compute direction
     Vector3d toLight = light_position - ray_origin;
     double light_distance = toLight.norm();
     
-    // Normalize the vector
+    // Normalize vector
     toLight.normalize();
     
-    // Check if the ray towards the light source is in the same general direction as the original ray
-    // This is to ensure that we're not checking for objects behind the origin point
     if (ray_direction.dot(toLight) < 0) return false;
 
     Vector3d p, N;
     int object_index = find_nearest_object(ray_origin, toLight, p, N);
     
-    // If the ray intersected with an object, compute the distance to the object
+    // If intersection -> compute distance
     if (object_index != -1) {
         double object_distance = (p - ray_origin).norm();
 
-        // If the object is closer than the light source, the light is not visible
+        // object closer than light -> no light
         if (object_distance < light_distance) return false;
     }
 
-    // No object is closer than the light source, so the light is visible
     return true;
 }
 
@@ -431,15 +428,12 @@ Vector4d shoot_ray(const Vector3d &ray_origin, const Vector3d &ray_direction, in
 
         // TODO: Shoot a shadow ray to determine if the light should affect the intersection point and call is_light_visible
 
-        // Check if the light is visible
         if (is_light_visible(p, Li, light_position))
         {
-            // Diffuse reflection
             Vector4d diff_color = obj_diffuse_color;
 
             if (nearest_object == 4)
             {
-                // Compute UV coordinates for the point on the sphere
                 const double x = p(0) - sphere_centers[nearest_object][0];
                 const double y = p(1) - sphere_centers[nearest_object][1];
                 const double z = p(2) - sphere_centers[nearest_object][2];
@@ -453,7 +447,7 @@ Vector4d shoot_ray(const Vector3d &ray_origin, const Vector3d &ray_direction, in
 
                 diff_color = procedural_texture(tu, tv);
             }
-        const Vector4d diffuse = diff_color * std::max(Li.dot(N), 0.0);
+        const Vector4d diffuse = diff_color * max(Li.dot(N), 0.0);
         // Specular reflection
         const Vector3d R = (2 * N * (N.dot(Li)) - Li).normalized();
         const Vector4d specular = obj_specular_color * pow((-ray_direction.dot(R), 0.0), obj_specular_exponent);
@@ -472,14 +466,41 @@ Vector4d shoot_ray(const Vector3d &ray_origin, const Vector3d &ray_direction, in
     // TODO: Compute the color of the reflected ray and add its contribution to the current point color.
     // use refl_color
     Vector4d reflection_color(0, 0, 0, 0);
+    
+    Vector3d inverse_ray = -ray_direction;
+    Vector3d reflection_direction = 2 * N.dot(inverse_ray) * N - inverse_ray;
+    Vector3d norigin = p + 0.0001 * reflection_direction;
+    Vector4d reflected_color = shoot_ray(norigin, reflection_direction, max_bounce - 1);
+    reflection_color = refl_color.cwiseProduct(reflected_color);
 
-    const Vector3d R = 2 * N * (N.dot(-ray_direction)) - (-ray_direction); // Reflected ray direction
-    reflection_color = refl_color.cwiseProduct(shoot_ray(p + 0.0001 * R, R, max_bounce - 1)); // Bounce ray, offset the origin slightly to avoid self intersection
     
 
     // TODO: Compute the color of the refracted ray and add its contribution to the current point color.
     //       Make sure to check for total internal reflection before shooting a new ray.
     Vector4d refraction_color(0, 0, 0, 0);
+
+    bool refraction_on = false; //Turn refraction on but i dont know how it should look, turns some spheres transparent right now 
+
+    if (max_bounce > 0 && refraction_on) 
+    {
+        double Index = 1;
+        if (ray_direction.dot(N) > 0) 
+        { 
+            N = -N;
+            Index = 1 / Index;
+        }
+
+        double cosIn = -ray_direction.dot(N);
+        double cosRefracted2 = 1 - Index * Index * (1 - cosIn * cosIn);
+
+        if (cosRefracted2 > 0) 
+        { 
+            Vector3d refractedDirection = Index * ray_direction + (Index * cosIn - sqrt(cosRefracted2)) * N; 
+            Vector3d refractedOrigin = p + 0.0001 * refractedDirection;
+            Vector4d refractedColor = shoot_ray(refractedOrigin, refractedDirection, max_bounce - 1);
+            refraction_color = obj_refraction_color.cwiseProduct(refractedColor);
+        }
+    }
 
     // Rendering equation
     Vector4d C = ambient_color + lights_color + reflection_color + refraction_color;
@@ -533,10 +554,10 @@ void raytrace_scene()
 
             if (is_perspective)
             {
-                if (dof) //Parameter for activating dof is somewhere in the first 20 lines of code
+                if (dof) //Parameter for activating dof is in line 33
                 {      
-                    Vector3d random_point_in_lens = lens_radius * Vector3d::Random();  
-                    ray_origin = camera_position + random_point_in_lens;
+                    Vector3d random_point = lens_radius * Vector3d::Random();  
+                    ray_origin = camera_position + random_point;
                     ray_direction = (pixel_center - ray_origin).normalized();
                 }
                 else
